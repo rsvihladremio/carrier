@@ -14,7 +14,7 @@ import argparse
 import unittest
 import subprocess
 from unittest.mock import patch, call
-import ddc
+import carrier
 
 
 class TestDDC(unittest.TestCase):
@@ -23,21 +23,21 @@ class TestDDC(unittest.TestCase):
             file.write("host1\nhost2\nhost3\n")
 
         expected_hosts = ["host1", "host2", "host3"]
-        actual_hosts = ddc.read_hosts_file("test_hosts_file.txt")
+        actual_hosts = carrier.read_hosts_file("test_hosts_file.txt")
 
         self.assertEqual(expected_hosts, actual_hosts)
 
     def test_parse_hosts_list(self):
         hosts_str = "host1,host2,host3"
         expected_hosts = ["host1", "host2", "host3"]
-        actual_hosts = ddc.parse_hosts_list(hosts_str)
+        actual_hosts = carrier.parse_hosts_list(hosts_str)
 
         self.assertEqual(expected_hosts, actual_hosts)
 
     @patch("ddc.subprocess.run")
     @patch("ddc.uuid.uuid4", return_value="12345678-1234-1234-1234-123456789abc")
     def test_execute_script_on_host_ssh(self, mock_uuid4, mock_run):
-        ddc.execute_script_on_host_ssh(
+        carrier.execute_script_on_host_ssh(
             "host1",
             "collect.sh",
             username="myuser",
@@ -176,7 +176,7 @@ class TestDDC(unittest.TestCase):
     @patch("ddc.subprocess.run")
     @patch("ddc.uuid.uuid4", return_value="12345678-1234-1234-1234-123456789abc")
     def test_execute_script_on_host_kubectl(self, mock_uuid4, mock_run):
-        ddc.execute_script_on_host_kubectl(
+        carrier.execute_script_on_host_kubectl(
             "pod1", "collect.sh", namespace="my-namespace"
         )
 
@@ -273,7 +273,7 @@ class TestDDC(unittest.TestCase):
         ),
     )
     def test_get_pods_by_labels(self, mock_run):
-        pods = ddc.get_pods_by_labels(
+        pods = carrier.get_pods_by_labels(
             "app=myapp,env=production", namespace="my-namespace"
         )
         self.assertEqual(pods, ["pod1", "pod2"])
@@ -295,7 +295,7 @@ class TestDDC(unittest.TestCase):
         )
 
     def test_build_ssh_options(self):
-        ssh_options = ddc.build_ssh_options(
+        ssh_options = carrier.build_ssh_options(
             username="myuser", password="mypass", ignore_host_key=True
         )
         self.assertEqual(
