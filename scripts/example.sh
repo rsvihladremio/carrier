@@ -1,0 +1,1 @@
+echo $(host -a)
