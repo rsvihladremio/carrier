@@ -47,9 +47,6 @@ class TestCarrierK8s(unittest.TestCase):
         mock_open.assert_called_once_with("output.tar.gz", "w:gz")
         mock_remove.assert_called()
     
-    def test_fail(self):
-        assert True == False
-
 
 if __name__ == "__main__":
     unittest.main()
