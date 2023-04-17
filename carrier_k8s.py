@@ -23,7 +23,7 @@ def parse_arguments():
     )
     parser.add_argument("script", help="Path to the script file to run on pods.")
     parser.add_argument(
-        "--script-args", nargs=argparse.REMAINDER, help="Arguments for the script"
+        "--script-args", nargs=argparse.REMAINDER, default=[], help="Arguments for the script"
     )
     parser.add_argument(
         "--namespace", default="default", help="Kubernetes namespace to use."
@@ -42,7 +42,7 @@ def parse_arguments():
 
 
 class CarrierK8s:
-    def __init__(self, script, namespace, labels, shell, script_args=[]):
+    def __init__(self, script, namespace, labels, shell, script_args):
         self.script = script
         self.namespace = namespace
         self.labels = labels
@@ -65,7 +65,7 @@ class CarrierK8s:
         return output.split()
 
     def run_script_on_pod(self, pod_name):
-        pod_tmp_dir = f"/tmp/{pod_name}_tmp"
+        pod_tmp_dir = f"{pod_name}_tmp"
         create_tmp_dir_cmd = (
             f"kubectl exec -n {self.namespace} {pod_name} -- mkdir -p {pod_tmp_dir}"
         )
@@ -78,7 +78,7 @@ class CarrierK8s:
         run_script_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- {self.shell} {pod_tmp_dir}/{Path(self.script).name} {script_args_str}"
         self.run_cmd(run_script_cmd)
 
-        collect_files_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_dir}/{pod_name}.tar.gz {pod_tmp_dir}/*"
+        collect_files_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_dir}/{pod_name}.tar.gz --exclude={pod_name}.tar.gz --exclude={Path(self.script).name} -C {pod_tmp_dir}/ ."
         self.run_cmd(collect_files_cmd)
 
         copy_back_cmd = f"kubectl cp {self.namespace}/{pod_name}:{pod_tmp_dir}/{pod_name}.tar.gz {pod_name}.tar.gz"

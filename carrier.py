@@ -92,7 +92,7 @@ class Carrier:
         return f"scp -q -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' {src} {self.username}@{dest}"
 
     def run_script_on_host(self, host):
-        host_tmp_dir = f"/tmp/{host}_tmp"
+        host_tmp_dir = f"{host}_tmp"
         create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
         self.run_cmd(create_tmp_dir_cmd)
 
@@ -109,7 +109,7 @@ class Carrier:
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = self.ssh_cmd(
-            host, f"tar -czf {host_tmp_dir}/{host}.tar.gz {host_tmp_dir}/*"
+            host, f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name}-C {host_tmp_dir}/ ."
         )
         self.run_cmd(collect_files_cmd)
 
