@@ -12,280 +12,152 @@
 
 import argparse
 import os
-import tarfile
 import subprocess
-import uuid
-import json
-
-# Helper functions
-
-
-def combine_tar_files(tar_files, output_tar_file):
-    with tarfile.open(output_tar_file, "w") as final_tar:
-        for tar_file in tar_files:
-            tar_info = tarfile.TarInfo(name=os.path.basename(tar_file))
-            tar_info.size = os.path.getsize(tar_file)
-            with open(tar_file, "rb") as file:
-                final_tar.addfile(tarinfo=tar_info, fileobj=file)
+import tarfile
+from getpass import getpass
+from pathlib import Path
+from threading import Thread, Lock
 
 
-def compress_combined_file(file_path):
-    gzip_available = (
-        subprocess.run(
-            ["command -v gzip"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            shell=True,
-        ).returncode
-        == 0
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description="Run a script on multiple hosts and collect output."
     )
-    if gzip_available:
-        with tarfile.open(file_path, "r") as src_tar, tarfile.open(
-            f"{file_path}.gz", "w:gz"
-        ) as dest_tar:
-            for member in src_tar.getmembers():
-                dest_tar.addfile(member, src_tar.extractfile(member))
-        os.remove(file_path)
-        return f"{file_path}.gz"
-    else:
-        return file_path
-
-
-def read_hosts_file(file_path):
-    with open(file_path, "r") as file:
-        hosts = [line.strip() for line in file.readlines()]
-    return hosts
-
-
-def parse_hosts_list(hosts_str):
-    return [host.strip() for host in hosts_str.split(",")]
-
-
-def get_pods_by_labels(labels, namespace):
-    result = subprocess.run(
-        ["kubectl", "get", "pods", "-n", namespace, "-l", labels, "-o", "json"],
-        capture_output=True,
-        text=True,
-        check=True,
+    parser.add_argument("script", help="Path to the script file to run on hosts.")
+    parser.add_argument(
+        "--hosts", help="Comma-separated list of hosts (e.g., 'host1,host2')."
     )
-    pod_list = json.loads(result.stdout)
-    return [pod["metadata"]["name"] for pod in pod_list["items"]]
-
-
-# SSH functions
-
-
-def build_ssh_options(username=None, password=None, ignore_host_key=False):
-    ssh_options = []
-    if ignore_host_key:
-        ssh_options.extend(
-            ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
-        )
-    if username:
-        ssh_options.extend(["-l", username])
-    if password:
-        ssh_options.extend(
-            [
-                "-o",
-                "PasswordAuthentication=yes",
-                "-o",
-                f'PasswordAuthentication="{password}"',
-            ]
-        )
-    return ssh_options
-
-
-def execute_script_on_host_ssh(
-    host, script, username=None, password=None, ignore_host_key=False
-):
-    remote_dir = f"/tmp/{uuid.uuid4()}"
-    remote_script = f"{remote_dir}/{os.path.basename(script)}"
-    remote_output_tar = f"{remote_dir}/output.tar.gz"
-
-    ssh_options = build_ssh_options(username, password, ignore_host_key)
-
-    subprocess.run(["ssh"] + ssh_options + [host, "mkdir", remote_dir])
-    subprocess.run(["scp"] + ssh_options + [script, f"{host}:{remote_script}"])
-    subprocess.run(["ssh"] + ssh_options + [host, "chmod", "+x", remote_script])
-    subprocess.run(
-        ["ssh"] + ssh_options + [host, f"cd {remote_dir} && {remote_script}"]
+    parser.add_argument(
+        "--hosts-file", help="File containing a list of hosts, one per line."
     )
-    subprocess.run(
-        ["ssh"]
-        + ssh_options
-        + [host, f"cd {remote_dir} && tar czf {remote_output_tar} ."]
-    )
-    subprocess.run(
-        ["scp"] + ssh_options + [f"{host}:{remote_output_tar}", f"{host}_output.tar.gz"]
-    )
-    subprocess.run(["ssh"] + ssh_options + [host, "rm", "-r", remote_dir])
-
-    return f"{host}_output.tar.gz"
-
-
-# kubectl functions
-
-
-def execute_script_on_host_kubectl(host, script, namespace):
-    remote_dir = f"/tmp/{uuid.uuid4()}"
-    remote_script = f"{remote_dir}/{os.path.basename(script)}"
-    remote_output_tar = f"{remote_dir}/output.tar.gz"
-
-    subprocess.run(
-        ["kubectl", "exec", host, "-n", namespace, "--", "mkdir", remote_dir]
-    )
-    subprocess.run(["kubectl", "cp", script, f"{namespace}/{host}:{remote_script}"])
-    subprocess.run(
-        ["kubectl", "exec", host, "-n", namespace, "--", "chmod", "+x", remote_script]
-    )
-    subprocess.run(
-        [
-            "kubectl",
-            "exec",
-            host,
-            "-n",
-            namespace,
-            "--",
-            "sh",
-            "-c",
-            f"cd {remote_dir} && {remote_script}",
-        ]
-    )
-    subprocess.run(
-        [
-            "kubectl",
-            "exec",
-            host,
-            "-n",
-            namespace,
-            "--",
-            "sh",
-            "-c",
-            f"cd {remote_dir} && tar czf {remote_output_tar} .",
-        ]
-    )
-    subprocess.run(
-        [
-            "kubectl",
-            "cp",
-            f"{namespace}/{host}:{remote_output_tar}",
-            f"{host}_output.tar.gz",
-        ]
-    )
-    subprocess.run(
-        ["kubectl", "exec", host, "-n", namespace, "--", "rm", "-r", remote_dir]
-    )
-
-    return f"{host}_output.tar.gz"
-
-
-# Main functions
-
-
-def ssh(args):
-    if args.hosts_file:
-        hosts = read_hosts_file(args.hosts_file)
-    elif args.hosts_list:
-        hosts = parse_hosts_list(args.hosts_list)
-
-    individual_tar_files = []
-    for host in hosts:
-        tar_file = execute_script_on_host_ssh(host, args.script)
-        individual_tar_files.append(tar_file)
-
-    combined_tar_file = "combined_results.tar"
-    combine_tar_files(individual_tar_files, combined_tar_file)
-
-    for tar_file in individual_tar_files:
-        os.remove(tar_file)
-
-    compressed_file = compress_combined_file(combined_tar_file)
-    print(f"Combined results saved in {compressed_file}")
-
-
-def kubectl(args):
-    hosts = get_pods_by_labels(args.labels, args.namespace)
-
-    individual_tar_files = []
-    for host in hosts:
-        tar_file = execute_script_on_host_kubectl(host, args.script, args.namespace)
-        individual_tar_files.append(tar_file)
-
-    combined_tar_file = "combined_results.tar"
-    combine_tar_files(individual_tar_files, combined_tar_file)
-
-    for tar_file in individual_tar_files:
-        os.remove(tar_file)
-
-    compressed_file = compress_combined_file(combined_tar_file)
-    print(f"Combined results saved in {compressed_file}")
-
-
-def configure_arg_parser(parser):
-    subparsers = parser.add_subparsers()
-    ssh_parser = subparsers.add_parser(
-        "ssh", help="Use SSH to execute the script on remote hosts."
-    )
-    ssh_parser.add_argument(
-        "--hosts-file",
-        type=str,
-        help="Path to the file containing a list of hosts (one per line)",
-    )
-    ssh_parser.add_argument(
-        "--hosts-list", type=str, help="Comma-separated list of hosts"
-    )
-    ssh_parser.add_argument(
-        "--script",
-        type=str,
-        required=True,
-        help="Path to the script to run on each host",
-    )
-    ssh_parser.add_argument(
-        "--username", type=str, help="Username for SSH authentication"
-    )
-    ssh_parser.add_argument(
-        "--password", type=str, help="Password for SSH authentication"
-    )
-    ssh_parser.add_argument(
-        "--ignore-host-key",
+    parser.add_argument("--username", help="Username for SSH authentication.")
+    parser.add_argument(
+        "--use-key",
         action="store_true",
-        help="Ignore SSH host key verification",
+        help="Use key-based authentication (default: False).",
+    )
+    parser.add_argument(
+        "--shell",
+        default="bash",
+        choices=["bash", "zsh", "sh"],
+        help="Shell to use for running the script (default: bash).",
+    )
+    parser.add_argument(
+        "--script-args", nargs=argparse.REMAINDER, help="Arguments for the script"
     )
 
-    ssh_parser.set_defaults(func=ssh)
+    args = parser.parse_args()
+    args.password = None
+    if not args.use_key:
+        args.password = getpass.getpass("Enter password: ")
+    return args
 
-    kubectl_parser = subparsers.add_parser(
-        "kubectl", help="Use kubectl to execute the script on Kubernetes Pods."
+
+def load_hosts_from_file(hosts_file):
+    with open(hosts_file, "r") as f:
+        return [line.strip() for line in f.readlines()]
+
+
+class Carrier:
+    def __init__(
+        self, script, hosts, username, password, use_key, shell, script_args=[]
+    ):
+        self.script = script
+        self.hosts = hosts
+        self.username = username
+        self.password = password
+        self.use_key = use_key
+        self.shell = shell
+        self.script_args = script_args
+        self.output_archive = "output.tar.gz"
+        self.log_file = "debug.log"
+        self.log_lock = Lock()
+
+    def run_cmd(self, cmd):
+        with self.log_lock:
+            with open(self.log_file, "a") as log:
+                subprocess.run(
+                    cmd, shell=True, check=True, stdout=log, stderr=subprocess.STDOUT
+                )
+
+    def ssh_cmd(self, host, cmd):
+        base_cmd = f"ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' -q {self.username}@{host}"
+        if self.use_key:
+            base_cmd += " "
+        else:
+            base_cmd += f' -t "echo {self.password} | sudo -S {cmd}"'
+        return base_cmd
+
+    def scp_cmd(self, src, dest):
+        return f"scp -q -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' {src} {self.username}@{dest}"
+
+    def run_script_on_host(self, host):
+        host_tmp_dir = f"/tmp/{host}_tmp"
+        create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
+        self.run_cmd(create_tmp_dir_cmd)
+
+        copy_script_cmd = self.scp_cmd(
+            self.script, f"{host}:{host_tmp_dir}/{Path(self.script).name}"
+        )
+        self.run_cmd(copy_script_cmd)
+
+        script_args_str = " ".join(self.script_args)
+        run_script_cmd = self.ssh_cmd(
+            host,
+            f"{self.shell} {host_tmp_dir}/{Path(self.script).name} {script_args_str}",
+        )
+        self.run_cmd(run_script_cmd)
+
+        collect_files_cmd = self.ssh_cmd(
+            host, f"tar -czf {host_tmp_dir}/{host}.tar.gz {host_tmp_dir}/*"
+        )
+        self.run_cmd(collect_files_cmd)
+
+        copy_back_cmd = self.scp_cmd(
+            f"{host}:{host_tmp_dir}/{host}.tar.gz", f"{host}.tar.gz"
+        )
+        self.run_cmd(copy_back_cmd)
+
+    def run(self):
+        threads = []
+        for host in self.hosts:
+            t = Thread(target=self.run_script_on_host, args=(host,))
+            t.start()
+            threads.append(t)
+
+        for t in threads:
+            t.join()
+
+        with tarfile.open(self.output_archive, "w:gz") as big_archive:
+            for host in self.hosts:
+                big_archive.add(f"{host}.tar.gz", arcname=f"{host}.tar.gz")
+                os.remove(f"{host}.tar.gz")
+
+        return f"All done! The final archive is {self.output_archive}"
+
+
+def main():
+    args = parse_arguments()
+
+    if args.hosts:
+        hosts = args.hosts.split(",")
+    elif args.hosts_file:
+        hosts = load_hosts_from_file(args.hosts_file)
+    else:
+        raise ValueError("Either --hosts or --hosts-file must be provided.")
+
+    runner = Carrier(
+        args.script,
+        hosts,
+        args.username,
+        args.password,
+        args.use_key,
+        args.shell,
+        args.script_args,
     )
-    kubectl_parser.add_argument(
-        "--labels",
-        type=str,
-        required=True,
-        help='Comma-separated list of Kubernetes labels in the format "key=value"',
-    )
-    kubectl_parser.add_argument(
-        "--namespace",
-        type=str,
-        required=True,
-        help="Kubernetes namespace where the Pods are located",
-    )
-    kubectl_parser.add_argument(
-        "--script",
-        type=str,
-        required=True,
-        help="Path to the script to run on each Pod",
-    )
-    kubectl_parser.set_defaults(func=kubectl)
+    result = runner.run()
+    print(result)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Execute a script on multiple remote hosts or Kubernetes Pods and collect the results."
-    )
-    configure_arg_parser(parser)
-
-    args = parser.parse_args()
-    if hasattr(args, "func"):
-        args.func(args)
-    else:
-        parser.print_help()
+    main()
