@@ -45,10 +45,3 @@ jobs:
       run: |
         python -m unittest discover -v # Discover and run all unit tests in the current directory
         
-    - name: Check test results
-      run: |
-        if [ $? -eq 1 ]
-        then
-          echo "Tests failed"
-          exit 1
-        fi
