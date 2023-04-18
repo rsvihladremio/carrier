@@ -58,7 +58,7 @@ class CarrierK8s:
     def run_cmd(self, cmd):
         with self.log_lock:
             with open(self.log_file, "a") as log:
-                subprocess.run(
+                return subprocess.run(
                     cmd, shell=True, check=True, stdout=log, stderr=subprocess.STDOUT
                 )
 
@@ -69,6 +69,20 @@ class CarrierK8s:
 
     def run_script_on_pod(self, pod_name):
         pod_tmp_dir = f"{pod_name}_tmp"
+        rights_check = (
+            f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_dir}"
+        )
+        exit_code = self.run_cmd(rights_check)
+        if exit_code != 0:
+            orig_tmp_dir = pod_tmp_dir
+            pod_tmp_dir = f"/tmp/{pod_tmp_dir}"
+            rights_check = (
+                f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_dir}"
+            )
+            exit_code = self.run_cmd(rights_check)
+            if exit_code != 0:
+                raise ValueError(f"do not have the rights to write to either {pod_tmp_dir} or {orig_tmp_dir} directories")
+
         create_tmp_dir_cmd = (
             f"kubectl exec -n {self.namespace} {pod_name} -- mkdir -p {pod_tmp_dir}"
         )

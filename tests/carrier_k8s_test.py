@@ -33,8 +33,9 @@ class TestCarrierK8s(unittest.TestCase):
 
     @patch("carrier_k8s.CarrierK8s.run_cmd")
     def test_run_script_on_pod(self, mock_run_cmd):
+        mock_run_cmd.return_value = 0
         self.runner.run_script_on_pod("pod1")
-        self.assertEqual(mock_run_cmd.call_count, 5)
+        self.assertEqual(mock_run_cmd.call_count, 6)
 
     @patch("carrier_k8s.CarrierK8s.get_pods")
     @patch("carrier_k8s.CarrierK8s.run_script_on_pod")
