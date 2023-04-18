@@ -22,12 +22,12 @@ class TestCarrier(unittest.TestCase):
             "test_script.sh", ["host1", "host2"], "user", "password", False, "bash"
         )
 
-    # def test_init(self):
-    #     self.assertEqual(self.runner.script, "test_script.sh")
-    #     self.assertEqual(self.runner.hosts, ["host1", "host2"])
-    #     self.assertEqual(self.runner.username, "user")
-    #     self.assertEqual(self.runner.use_key, False)
-    #     self.assertEqual(self.runner.shell, "bash")
+    def test_init(self):
+        self.assertEqual(self.runner.script, "test_script.sh")
+        self.assertEqual(self.runner.hosts, ["host1", "host2"])
+        self.assertEqual(self.runner.username, "user")
+        self.assertEqual(self.runner.use_key, False)
+        self.assertEqual(self.runner.shell, "bash")
 
     @patch("subprocess.check_output")
     def test_ssh_cmd(self, mock_check_output):
