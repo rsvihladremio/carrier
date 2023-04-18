@@ -23,7 +23,10 @@ def parse_arguments():
     )
     parser.add_argument("script", help="Path to the script file to run on pods.")
     parser.add_argument(
-        "--script-args", nargs=argparse.REMAINDER, default=[], help="Arguments for the script"
+        "--script-args",
+        nargs=argparse.REMAINDER,
+        default=[],
+        help="Arguments for the script",
     )
     parser.add_argument(
         "--namespace", default="default", help="Kubernetes namespace to use."

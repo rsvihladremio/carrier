@@ -46,7 +46,7 @@ class TestCarrierK8s(unittest.TestCase):
         mock_run_script_on_pod.assert_called()
         mock_open.assert_called_once_with("output.tar.gz", "w:gz")
         mock_remove.assert_called()
-    
+
 
 if __name__ == "__main__":
     unittest.main()

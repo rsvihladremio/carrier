@@ -109,7 +109,8 @@ class Carrier:
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = self.ssh_cmd(
-            host, f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name}-C {host_tmp_dir}/ ."
+            host,
+            f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name}-C {host_tmp_dir}/ .",
         )
         self.run_cmd(collect_files_cmd)
 
