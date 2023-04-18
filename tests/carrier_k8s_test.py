@@ -17,7 +17,7 @@ from carrier_k8s import CarrierK8s
 
 class TestCarrierK8s(unittest.TestCase):
     def setUp(self):
-        self.runner = CarrierK8s("test_script.sh", "default", "app=myapp", "bash")
+        self.runner = CarrierK8s("test_script.sh", "default", "app=myapp", "bash", [])
 
     def test_init(self):
         self.assertEqual(self.runner.script, "test_script.sh")
