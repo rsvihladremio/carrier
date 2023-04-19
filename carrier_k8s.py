@@ -11,6 +11,7 @@
 #    limitations under the License.
 import argparse
 import os
+import sys
 import subprocess
 import tarfile
 from pathlib import Path
@@ -21,7 +22,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Run a script on multiple pods and collect output."
     )
-    parser.add_argument("script", help="Path to the script file to run on pods.")
+    parser.add_argument(
+        "script", help="Path to the script file to run on pods.")
     parser.add_argument(
         "--script-args",
         nargs=argparse.REMAINDER,
@@ -30,6 +32,11 @@ def parse_arguments():
     )
     parser.add_argument(
         "--namespace", default="default", help="Kubernetes namespace to use."
+    )
+    parser.add_argument(
+        "--container",
+        required=False,
+        help="Kubernetes container to use."
     )
     parser.add_argument(
         "--labels",
@@ -56,10 +63,11 @@ class CarrierK8s:
         self.log_lock = Lock()
 
     def run_cmd(self, cmd):
+        print(cmd)
         with self.log_lock:
             with open(self.log_file, "a") as log:
                 return subprocess.run(
-                    cmd, shell=True, check=True, stdout=log, stderr=subprocess.STDOUT
+                    cmd, shell=True, check=False, stdout=log, stderr=subprocess.STDOUT
                 )
 
     def get_pods(self):
@@ -68,20 +76,27 @@ class CarrierK8s:
         return output.split()
 
     def run_script_on_pod(self, pod_name):
-        pod_tmp_dir = f"{pod_name}_tmp"
+        pod_dir = f"{pod_name}_tmp"
+        pod_tmp_base_dir = "."
+        pod_tmp_dir = f"{pod_tmp_base_dir}/{pod_name}_tmp"
+        # Check write access to local dir
         rights_check = (
-            f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_dir}"
+            f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_base_dir}"
         )
         exit_code = self.run_cmd(rights_check)
-        if exit_code != 0:
+        if exit_code.returncode != 0:
+            # If local dir does not have write access, try /tmp path
             orig_tmp_dir = pod_tmp_dir
-            pod_tmp_dir = f"/tmp/{pod_tmp_dir}"
+            pod_tmp_base_dir = "/tmp"
+            pod_tmp_dir = f"{pod_tmp_base_dir}/{pod_dir}"
             rights_check = (
-                f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_dir}"
+                f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_base_dir}"
             )
             exit_code = self.run_cmd(rights_check)
-            if exit_code != 0:
-                raise ValueError(f"do not have the rights to write to either {pod_tmp_dir} or {orig_tmp_dir} directories")
+            # If /tmp path also has no write access raise exception
+            if exit_code.returncode != 0:
+                raise ValueError(
+                    f"do not have the rights to write to either {pod_tmp_dir} or {orig_tmp_dir} directories")
 
         create_tmp_dir_cmd = (
             f"kubectl exec -n {self.namespace} {pod_name} -- mkdir -p {pod_tmp_dir}"
