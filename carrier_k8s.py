@@ -63,7 +63,6 @@ class CarrierK8s:
         self.log_lock = Lock()
 
     def run_cmd(self, cmd):
-        print(cmd)
         with self.log_lock:
             with open(self.log_file, "a") as log:
                 return subprocess.run(
@@ -77,43 +76,44 @@ class CarrierK8s:
 
     def run_script_on_pod(self, pod_name):
         pod_dir = f"{pod_name}_tmp"
-        pod_tmp_base_dir = "."
+        pod_tmp_base_dir = "/tmp"
         pod_tmp_dir = f"{pod_tmp_base_dir}/{pod_name}_tmp"
-        # Check write access to local dir
+        # Check write access to /tmp dir
         rights_check = (
             f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_base_dir}"
         )
         exit_code = self.run_cmd(rights_check)
+        # If /tmp path  has no write access raise exception
         if exit_code.returncode != 0:
-            # If local dir does not have write access, try /tmp path
-            orig_tmp_dir = pod_tmp_dir
-            pod_tmp_base_dir = "/tmp"
-            pod_tmp_dir = f"{pod_tmp_base_dir}/{pod_dir}"
-            rights_check = (
-                f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_base_dir}"
-            )
-            exit_code = self.run_cmd(rights_check)
-            # If /tmp path also has no write access raise exception
-            if exit_code.returncode != 0:
-                raise ValueError(
-                    f"do not have the rights to write to either {pod_tmp_dir} or {orig_tmp_dir} directories")
+            raise ValueError(
+                f"do not have the rights to write to either {pod_tmp_dir}")
 
         create_tmp_dir_cmd = (
             f"kubectl exec -n {self.namespace} {pod_name} -- mkdir -p {pod_tmp_dir}"
         )
+        print("creating tmp dir")
+        self.feedback(f"creating tmp dir {pod_tmp_dir}")
         self.run_cmd(create_tmp_dir_cmd)
 
         copy_script_cmd = f"kubectl cp {self.script} {self.namespace}/{pod_name}:{pod_tmp_dir}/{Path(self.script).name}"
+        self.feedback(f"copying script {self.script}")
         self.run_cmd(copy_script_cmd)
 
+        # pass in arguments to the script, if none are used then the tmp dir is passed in
         script_args_str = " ".join(self.script_args)
+        if script_args_str == "":
+            script_args_str = pod_tmp_dir
+
         run_script_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- {self.shell} {pod_tmp_dir}/{Path(self.script).name} {script_args_str}"
+        self.feedback(f"running script")
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_dir}/{pod_name}.tar.gz --exclude={pod_name}.tar.gz --exclude={Path(self.script).name} -C {pod_tmp_dir}/ ."
+        self.feedback(f"archiving files")
         self.run_cmd(collect_files_cmd)
 
         copy_back_cmd = f"kubectl cp {self.namespace}/{pod_name}:{pod_tmp_dir}/{pod_name}.tar.gz {pod_name}.tar.gz"
+        self.feedback(f"copying back files")
         self.run_cmd(copy_back_cmd)
 
     def run(self):
@@ -134,6 +134,10 @@ class CarrierK8s:
                 os.remove(f"{pod}.tar.gz")
 
         return f"All done! The final archive is {self.output_archive}"
+
+    def feedback(self, fb_string):
+        fb_output = f"progress: {fb_string}"
+        print(fb_output)
 
 
 def main():

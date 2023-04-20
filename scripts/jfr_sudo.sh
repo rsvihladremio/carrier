@@ -14,20 +14,20 @@ function check_java {
 }
 
 function check_jfr {
-    $JCMD $PROCPID JFR.check 
+    sudo -u $PROCUSER $JCMD $PROCPID JFR.check 
 }
 
 function start_jfr {
-    $JCMD $PROCPID VM.unlock_commercial_features
-    $JCMD $PROCPID JFR.start name=$JFRNAME settings=profile dumponexit=true duration="$DURATION"s
+    sudo -u $PROCUSER $JCMD $PROCPID VM.unlock_commercial_features
+    sudo -u $PROCUSER $JCMD $PROCPID JFR.start name=$JFRNAME settings=profile dumponexit=true duration="$DURATION"s
 }
 
 function stop_jfr {
-    $JCMD $PROCPID JFR.stop name=$JFRNAME
+    sudo -u $PROCUSER $JCMD $PROCPID JFR.stop name=$JFRNAME
 }
 
 function dump_jfr {
-    $JCMD $PROCPID JFR.dump name=$JFRNAME filename=$JFRFILE 
+    sudo -u $PROCUSER $JCMD $PROCPID JFR.dump name=$JFRNAME filename=$JFRFILE 
 }
 
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')

@@ -2,19 +2,23 @@
 #
 # Script to pull OS and JVM info
 
-function useage {
-    echo
-    echo "Usage: $0 <interval> <count>"
-    echo
-    echo "Example: $0 10 30 - (runs every 10 seconds until 30 runs have completed)"
-    echo "Example: $0 10 -1 - (runs continuously, every 10 seconds)"
-    echo "Example: $0 <no args> - (runs just once)"
-    echo
-    echo "Note: this script attempts to run as current user"
-    echo "you can force this below by setting DR_USER if you wish"
-    echo
-    exit
-}
+# === CONFIG ===
+
+NODE=$(hostname)
+DATE=$(date '+%Y-%m-%d_%H-%M-%S')
+MONDIR=$1    # passed in as target output dir
+DR_PID=$(ps -ef | grep -E "(dremio.*server|DremioDaemon)" | grep -vE "grep|preview" | awk '{print $2}')
+DR_USER=dremio
+LOG="$MONDIR/$NODE-$DATE-monitor-$DR_PID.out"
+TD_LOG="$MONDIR/$NODE-$DATE-monitor-thread-dump-$DR_PID.out"
+TTOP_CPU_LOG="$MONDIR/$NODE-$DATE-monitor-ttop-cpu-$DR_PID.out"
+TTOP_ALLOC_LOG="$MONDIR/$NODE-$DATE-monitor-ttop-alloc-$DR_PID.out"
+export PATH=$PATH:$JAVA_HOME/bin
+JSTACK=$(which jstack)
+JAVA=$(which java)" -jar "
+SJK="/tmp/sjk-plus-0.19.jar"
+COUNT=5    # number of iterations
+DELAY=5    # seconds between iterations
 
 # Find the SJK tool, if its not there, download the binary. For more info on the SJK see: https://github.com/aragozin/jvm-tools
 function find_sjk {
@@ -88,51 +92,9 @@ function run_proc {
    sudo cat /proc/$DR_PID/status >> $LOG
 }
 
-
-if [ $# -ne 0 ] && [ $# -ne 2 ]; then
-    useage
-    exit
-fi
-
-# Configuration
+# === CONTROL ===
 #
-# Set things like Dremio PID here
-# for example you might use:
-#
-# $(cat /var/run/dremio.pid)
-#
-# Also other things like file location,
-# date format, file names and such
-#
-# Also remember to set DR_USER to the user
-# that runs the dremio process (not always the login user)
-
-NODE=$(hostname)
-DATE=$(date '+%Y-%m-%d_%H-%M-%S')
-MONDIR="/tmp"
-if [ $# -ne 0 ]; then
-    DELAY=$1
-    COUNT=$2
-else
-    DELAY=1
-    COUNT=1
-fi
-DR_PID=$(ps -ef | grep -E "dremio.*server" | grep -vE "grep|preview" | awk '{print $2}')
-DR_USER=dremio
-LOG="$MONDIR/$NODE-$DATE-monitor-$DR_PID.out"
-TD_LOG="$MONDIR/$NODE-$DATE-monitor-thread-dump-$DR_PID.out"
-TTOP_CPU_LOG="$MONDIR/$NODE-$DATE-monitor-ttop-cpu-$DR_PID.out"
-TTOP_ALLOC_LOG="$MONDIR/$NODE-$DATE-monitor-ttop-alloc-$DR_PID.out"
-export PATH=$PATH:$JAVA_HOME/bin
-JSTACK=$(which jstack)
-JAVA=$(which java)" -jar "
-SJK="/tmp/sjk-plus-0.19.jar"
-
-# Main control
-#
-# This is where we call functions
-# to run commands to get diagnostics
-
+# Function calls etc
 # Run the ttop commands first in the background
 # these will continue running until they are killed
 # if you CTRL+C this script you will have to kill
@@ -165,7 +127,6 @@ if [ $COUNT -lt 0 ]; then
         sleep $DELAY
     done
 else
-
     for loop in $(seq $COUNT)
     do
         echo "Running iteration $loop of $COUNT"
@@ -182,5 +143,4 @@ fi
 
 # Clean up ttop processes and exit
 kill_ttop
-echo "Exiting monitor script ... please find outputs in $MONDIR"
 exit
