@@ -23,7 +23,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Run a script on multiple hosts and collect output."
     )
-    parser.add_argument("script", help="Path to the script file to run on hosts.")
+    parser.add_argument(
+        "script", help="Path to the script file to run on hosts.")
     parser.add_argument(
         "--hosts", help="Comma-separated list of hosts (e.g., 'host1,host2')."
     )
@@ -77,7 +78,7 @@ class Carrier:
         with self.log_lock:
             with open(self.log_file, "a") as log:
                 subprocess.run(
-                    cmd, shell=True, check=True, stdout=log, stderr=subprocess.STDOUT
+                    cmd, shell=True, check=True, stdout=log, stderr=subprocess.STDOUT, cwd=self.cwd
                 )
 
     def ssh_cmd(self, host, cmd):
@@ -95,6 +96,7 @@ class Carrier:
         host_tmp_dir = f"{host}_tmp"
         create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
         self.run_cmd(create_tmp_dir_cmd)
+        self.cwd = host_tmp_dir
 
         copy_script_cmd = self.scp_cmd(
             self.script, f"{host}:{host_tmp_dir}/{Path(self.script).name}"

@@ -78,6 +78,7 @@ class CarrierK8s:
         pod_dir = f"{pod_name}_tmp"
         pod_tmp_base_dir = "/tmp"
         pod_tmp_dir = f"{pod_tmp_base_dir}/{pod_name}_tmp"
+
         # Check write access to /tmp dir
         rights_check = (
             f"kubectl exec -n {self.namespace} {pod_name} -- test -w {pod_tmp_base_dir}"
@@ -99,12 +100,8 @@ class CarrierK8s:
         self.feedback(f"copying script {self.script}")
         self.run_cmd(copy_script_cmd)
 
-        # pass in arguments to the script, if none are used then the tmp dir is passed in
         script_args_str = " ".join(self.script_args)
-        if script_args_str == "":
-            script_args_str = pod_tmp_dir
-
-        run_script_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- {self.shell} {pod_tmp_dir}/{Path(self.script).name} {script_args_str}"
+        run_script_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- {self.shell} -c \"cd {pod_tmp_dir} && {pod_tmp_dir}/{Path(self.script).name} {script_args_str}\""
         self.feedback(f"running script")
         self.run_cmd(run_script_cmd)
 

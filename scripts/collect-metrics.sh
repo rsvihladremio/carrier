@@ -6,7 +6,7 @@
 
 NODE=$(hostname)
 DATE=$(date '+%Y-%m-%d_%H-%M-%S')
-MONDIR=$1    # passed in as target output dir
+MONDIR="."    # passed in as target output dir
 DR_PID=$(ps -ef | grep -E "(dremio.*server|DremioDaemon)" | grep -vE "grep|preview" | awk '{print $2}')
 DR_USER=dremio
 LOG="$MONDIR/$NODE-$DATE-monitor-$DR_PID.out"

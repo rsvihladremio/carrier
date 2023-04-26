@@ -32,7 +32,7 @@ function dump_jfr {
 
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 DURATION=60
-BASE_DIR=$1
+BASE_DIR="./"
 NODE=$(hostname)
 INTERVAL=10
 JFRNAME="$NODE-DR_JFR"
