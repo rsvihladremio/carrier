@@ -78,7 +78,7 @@ class Carrier:
         with self.log_lock:
             with open(self.log_file, "a") as log:
                 subprocess.run(
-                    cmd, shell=True, check=True, stdout=log, stderr=subprocess.STDOUT, cwd=self.cwd
+                    cmd, shell=True, check=True, stdout=log, stderr=subprocess.STDOUT
                 )
 
     def ssh_cmd(self, host, cmd):
@@ -96,7 +96,6 @@ class Carrier:
         host_tmp_dir = f"{host}_tmp"
         create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
         self.run_cmd(create_tmp_dir_cmd)
-        self.cwd = host_tmp_dir
 
         copy_script_cmd = self.scp_cmd(
             self.script, f"{host}:{host_tmp_dir}/{Path(self.script).name}"
