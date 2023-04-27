@@ -61,7 +61,7 @@ def load_hosts_from_file(hosts_file):
 
 class Carrier:
     def __init__(
-        self, script, hosts, username, password, use_key, shell, script_args
+        self, script, hosts, username, password, use_key, shell, script_args=[]
     ):
         self.script = script
         self.hosts = hosts
@@ -108,7 +108,12 @@ class Carrier:
         self.feedback(f"copying script {self.script} to {host}")
         self.run_cmd(copy_script_cmd)
 
-        script_args_str = " ".join(self.script_args)
+        # Check args has some content to avoid error
+        # "TypeError: can only join an iterable"
+        if self.script_args:
+            script_args_str = " ".join(self.script_args)
+        else:
+            script_args_str = ""
         run_script_cmd = self.ssh_cmd(
             host,
             f"\"cd {host_tmp_dir} ; {self.shell} {Path(self.script).name} {script_args_str}\"",

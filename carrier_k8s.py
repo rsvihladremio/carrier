@@ -99,7 +99,12 @@ class CarrierK8s:
         self.feedback(f"copying script {self.script} to {pod_name}")
         self.run_cmd(copy_script_cmd)
 
-        script_args_str = " ".join(self.script_args)
+        # Check args has some content to avoid error
+        # "TypeError: can only join an iterable"
+        if self.script_args:
+            script_args_str = " ".join(self.script_args)
+        else:
+            script_args_str = ""
         run_script_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- {self.shell} -c \"cd {pod_tmp_dir} && {pod_tmp_dir}/{Path(self.script).name} {script_args_str}\""
         self.feedback(f"running script on {pod_name}")
         self.run_cmd(run_script_cmd)
