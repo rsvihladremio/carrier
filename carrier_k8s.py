@@ -87,30 +87,29 @@ class CarrierK8s:
         # If /tmp path  has no write access raise exception
         if exit_code.returncode != 0:
             raise ValueError(
-                f"do not have the rights to write to either {pod_tmp_dir}")
+                f"do not have the rights to write to {pod_tmp_dir} on {pod_name}")
 
         create_tmp_dir_cmd = (
             f"kubectl exec -n {self.namespace} {pod_name} -- mkdir -p {pod_tmp_dir}"
         )
-        print("creating tmp dir")
-        self.feedback(f"creating tmp dir {pod_tmp_dir}")
+        self.feedback(f"creating tmp dir {pod_tmp_dir} on {pod_name}")
         self.run_cmd(create_tmp_dir_cmd)
 
         copy_script_cmd = f"kubectl cp {self.script} {self.namespace}/{pod_name}:{pod_tmp_dir}/{Path(self.script).name}"
-        self.feedback(f"copying script {self.script}")
+        self.feedback(f"copying script {self.script} to {pod_name}")
         self.run_cmd(copy_script_cmd)
 
         script_args_str = " ".join(self.script_args)
         run_script_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- {self.shell} -c \"cd {pod_tmp_dir} && {pod_tmp_dir}/{Path(self.script).name} {script_args_str}\""
-        self.feedback(f"running script")
+        self.feedback(f"running script on {pod_name}")
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_dir}/{pod_name}.tar.gz --exclude={pod_name}.tar.gz --exclude={Path(self.script).name} -C {pod_tmp_dir}/ ."
-        self.feedback(f"archiving files")
+        self.feedback(f"archiving files for {pod_name}")
         self.run_cmd(collect_files_cmd)
 
         copy_back_cmd = f"kubectl cp {self.namespace}/{pod_name}:{pod_tmp_dir}/{pod_name}.tar.gz {pod_name}.tar.gz"
-        self.feedback(f"copying back files")
+        self.feedback(f"copying back files from {pod_name}")
         self.run_cmd(copy_back_cmd)
 
     def run(self):
