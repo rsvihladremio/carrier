@@ -61,7 +61,7 @@ def load_hosts_from_file(hosts_file):
 
 class Carrier:
     def __init__(
-        self, script, hosts, username, password, use_key, shell, script_args=[]
+        self, script, hosts, username, password, use_key, shell, script_args
     ):
         self.script = script
         self.hosts = hosts
@@ -82,42 +82,51 @@ class Carrier:
                 )
 
     def ssh_cmd(self, host, cmd):
-        base_cmd = f"ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' -q {self.username}@{host}"
+        base_cmd = f"ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' -q {self.username}@{host} "
         if self.use_key:
-            base_cmd += " "
+            base_cmd += cmd
         else:
             base_cmd += f' -t "echo {self.password} | sudo -S {cmd}"'
         return base_cmd
 
-    def scp_cmd(self, src, dest):
+    def scp_write_cmd(self, src, dest):
         return f"scp -q -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' {src} {self.username}@{dest}"
+
+    def scp_read_cmd(self, src, dest):
+        return f"scp -q -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' {self.username}@{src} {dest}"
 
     def run_script_on_host(self, host):
         host_tmp_dir = f"{host}_tmp"
         create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
+        self.feedback(f"creating tmp dir {host_tmp_dir} on {host}")
+        self.feedback(create_tmp_dir_cmd)
         self.run_cmd(create_tmp_dir_cmd)
 
-        copy_script_cmd = self.scp_cmd(
+        copy_script_cmd = self.scp_write_cmd(
             self.script, f"{host}:{host_tmp_dir}/{Path(self.script).name}"
         )
+        self.feedback(f"copying script {self.script} to {host}")
         self.run_cmd(copy_script_cmd)
 
         script_args_str = " ".join(self.script_args)
         run_script_cmd = self.ssh_cmd(
             host,
-            f"{self.shell} {host_tmp_dir}/{Path(self.script).name} {script_args_str}",
+            f"\"cd {host_tmp_dir} ; {self.shell} {Path(self.script).name} {script_args_str}\"",
         )
+        self.feedback(f"running script on {host}")
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = self.ssh_cmd(
             host,
-            f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name}-C {host_tmp_dir}/ .",
+            f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name} -C {host_tmp_dir}/ .",
         )
+        self.feedback(f"archiving files for {host}")
         self.run_cmd(collect_files_cmd)
 
-        copy_back_cmd = self.scp_cmd(
+        copy_back_cmd = self.scp_read_cmd(
             f"{host}:{host_tmp_dir}/{host}.tar.gz", f"{host}.tar.gz"
         )
+        self.feedback(f"copying back files from {host}")
         self.run_cmd(copy_back_cmd)
 
     def run(self):
@@ -136,6 +145,10 @@ class Carrier:
                 os.remove(f"{host}.tar.gz")
 
         return f"All done! The final archive is {self.output_archive}"
+
+    def feedback(self, fb_string):
+        fb_output = f"progress: {fb_string}"
+        print(fb_output)
 
 
 def main():
