@@ -32,7 +32,7 @@ function dump_jfr {
 
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 DURATION=60
-BASE_DIR="./"
+BASE_DIR=$(pwd)
 NODE=$(hostname)
 INTERVAL=10
 JFRNAME="$NODE-DR_JFR"
@@ -47,9 +47,11 @@ JCMD=$(which jcmd)
 
 # Start JFR
 start_jfr
+pwd
 
 # Wait for duration then dump / stop
 # We dont need to stop the JFR if we dump it
 sleep $DURATION
 dump_jfr
+pwd
 exit
