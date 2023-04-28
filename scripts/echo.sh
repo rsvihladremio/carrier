@@ -2,5 +2,6 @@
 #
 # echo to stdout for testing carreir script
 
-echo "Running on $(hostname)"
+echo "Echo test: Running on $(hostname)"
+echo "Echo test: Running on $(hostname)" >> $(hostname)-echo.out
 exit

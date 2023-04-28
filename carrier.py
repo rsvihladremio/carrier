@@ -99,7 +99,6 @@ class Carrier:
         host_tmp_dir = f"{host}_tmp"
         create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
         self.feedback(f"creating tmp dir {host_tmp_dir} on {host}")
-        self.feedback(create_tmp_dir_cmd)
         self.run_cmd(create_tmp_dir_cmd)
 
         copy_script_cmd = self.scp_write_cmd(
