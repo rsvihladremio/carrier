@@ -98,13 +98,11 @@ class Carrier:
     def run_script_on_host(self, host):
         host_tmp_dir = f"{host}_tmp"
         create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
-        self.feedback(f"creating tmp dir {host_tmp_dir} on {host}")
         self.run_cmd(create_tmp_dir_cmd)
 
         copy_script_cmd = self.scp_write_cmd(
             self.script, f"{host}:{host_tmp_dir}/{Path(self.script).name}"
         )
-        self.feedback(f"copying script {self.script} to {host}")
         self.run_cmd(copy_script_cmd)
 
         # Check args has some content to avoid error
@@ -117,25 +115,23 @@ class Carrier:
             host,
             f"\"cd {host_tmp_dir} ; {self.shell} {Path(self.script).name} {script_args_str}\"",
         )
-        self.feedback(f"running script on {host}")
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = self.ssh_cmd(
             host,
             f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name} -C {host_tmp_dir}/ .",
         )
-        self.feedback(f"archiving files for {host}")
         self.run_cmd(collect_files_cmd)
 
         copy_back_cmd = self.scp_read_cmd(
             f"{host}:{host_tmp_dir}/{host}.tar.gz", f"{host}.tar.gz"
         )
-        self.feedback(f"copying back files from {host}")
         self.run_cmd(copy_back_cmd)
 
     def run(self):
         threads = []
         for host in self.hosts:
+            self.feedback(f"working with {host}")
             t = Thread(target=self.run_script_on_host, args=(host,))
             t.start()
             threads.append(t)

@@ -92,11 +92,9 @@ class CarrierK8s:
         create_tmp_dir_cmd = (
             f"kubectl exec -n {self.namespace} {pod_name} -- mkdir -p {pod_tmp_dir}"
         )
-        self.feedback(f"creating tmp dir {pod_tmp_dir} on {pod_name}")
         self.run_cmd(create_tmp_dir_cmd)
 
         copy_script_cmd = f"kubectl cp {self.script} {self.namespace}/{pod_name}:{pod_tmp_dir}/{Path(self.script).name}"
-        self.feedback(f"copying script {self.script} to {pod_name}")
         self.run_cmd(copy_script_cmd)
 
         # Check args has some content to avoid error
@@ -106,15 +104,12 @@ class CarrierK8s:
         else:
             script_args_str = ""
         run_script_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- {self.shell} -c \"cd {pod_tmp_dir} && {pod_tmp_dir}/{Path(self.script).name} {script_args_str}\""
-        self.feedback(f"running script on {pod_name}")
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = f"kubectl exec -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_dir}/{pod_name}.tar.gz --exclude={pod_name}.tar.gz --exclude={Path(self.script).name} -C {pod_tmp_dir}/ ."
-        self.feedback(f"archiving files for {pod_name}")
         self.run_cmd(collect_files_cmd)
 
         copy_back_cmd = f"kubectl cp {self.namespace}/{pod_name}:{pod_tmp_dir}/{pod_name}.tar.gz {pod_name}.tar.gz"
-        self.feedback(f"copying back files from {pod_name}")
         self.run_cmd(copy_back_cmd)
 
     def run(self):
@@ -122,6 +117,7 @@ class CarrierK8s:
 
         threads = []
         for pod in pods:
+            self.feedback(f"working with {pod}")
             t = Thread(target=self.run_script_on_pod, args=(pod,))
             t.start()
             threads.append(t)
