@@ -14,6 +14,7 @@ import argparse
 import os
 import subprocess
 import tarfile
+import time
 from pathlib import Path
 import concurrent.futures
 
@@ -117,6 +118,9 @@ class CarrierK8s:
             # Now cd to the sub directory and run our script using the k8s context, k8s config, k8s namespace and unix shell specified. Likewise pass any args that one needs to pass to the script
             run_script_cmd = f'kubectl exec {self.k8s_context} {self.k8s_config} -n {self.namespace} {pod_name} -- {self.shell} -c "cd {pod_tmp_dir} && {self.shell} {pod_tmp_dir}/{Path(self.script).name} {script_args_str}"'
             self.run_cmd(run_script_cmd, pod_log)
+
+            # let collection rest so all files can be fully written to disk
+            time.sleep(1)
 
             # Now use tar on the pod to archive all output in the subdirectory. We are excluding the script and the tar itself
             collect_files_cmd = f"kubectl exec {self.k8s_context} {self.k8s_config} -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_dir}/{pod_name}.tar.gz --exclude={pod_name}.tar.gz --exclude={Path(self.script).name} -C {pod_tmp_dir}/ ."
