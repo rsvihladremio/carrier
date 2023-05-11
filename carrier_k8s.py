@@ -100,7 +100,9 @@ class CarrierK8s:
         try:
             # create a subdirectory under /tmp. We do this as /tmp is a well known location and we create a subdirectory to avoid collisions with other processes
             # this also makes cleanup easier later
-            pod_tmp_dir = f"/tmp/{pod_name}_tmp"
+            pod_tmp_top_level_dir = f"/tmp/{pod_name}_tmp"
+            # we need to separate the collected data and the tar.gz so that we can avoid a race
+            pod_tmp_dir = f"{pod_tmp_top_level_dir}/data"
             create_tmp_dir_cmd = f"kubectl exec  {self.k8s_context} {self.k8s_config} -n {self.namespace} {pod_name} -- mkdir -p {pod_tmp_dir}"
             self.run_cmd(create_tmp_dir_cmd, pod_log)
 
@@ -119,15 +121,12 @@ class CarrierK8s:
             run_script_cmd = f'kubectl exec {self.k8s_context} {self.k8s_config} -n {self.namespace} {pod_name} -- {self.shell} -c "cd {pod_tmp_dir} && {self.shell} {pod_tmp_dir}/{Path(self.script).name} {script_args_str}"'
             self.run_cmd(run_script_cmd, pod_log)
 
-            # let collection rest so all files can be fully written to disk
-            time.sleep(1)
-
             # Now use tar on the pod to archive all output in the subdirectory. We are excluding the script and the tar itself
-            collect_files_cmd = f"kubectl exec {self.k8s_context} {self.k8s_config} -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_dir}/{pod_name}.tar.gz --exclude={pod_name}.tar.gz --exclude={Path(self.script).name} -C {pod_tmp_dir}/ ."
+            collect_files_cmd = f"kubectl exec {self.k8s_context} {self.k8s_config} -n {self.namespace} {pod_name} -- tar -czf {pod_tmp_top_level_dir}/{pod_name}.tar.gz --exclude={Path(self.script).name} -C {pod_tmp_dir}/ ."
             self.run_cmd(collect_files_cmd, pod_log)
 
             # copy the tar back to the local machine
-            copy_back_cmd = f"kubectl cp {self.k8s_context} {self.k8s_config} {self.namespace}/{pod_name}:{pod_tmp_dir}/{pod_name}.tar.gz {pod_name}.tar.gz"
+            copy_back_cmd = f"kubectl cp {self.k8s_context} {self.k8s_config} {self.namespace}/{pod_name}:{pod_tmp_top_level_dir}/{pod_name}.tar.gz {pod_name}.tar.gz"
             self.run_cmd(copy_back_cmd, pod_log)
         except Exception as e:
             # since this failed we are returning the error here
