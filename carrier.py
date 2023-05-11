@@ -81,40 +81,48 @@ class Carrier:
                 )
 
     def ssh_cmd(self, host, cmd):
-        base_cmd = f"ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' -q {self.username}@{host}"
+        base_cmd = f"ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' -q {self.username}@{host} "
         if self.use_key:
-            base_cmd += " "
+            base_cmd += cmd
         else:
             base_cmd += f' -t "echo {self.password} | sudo -S {cmd}"'
         return base_cmd
 
-    def scp_cmd(self, src, dest):
+    def scp_write_cmd(self, src, dest):
         return f"scp -q -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' {src} {self.username}@{dest}"
+
+    def scp_read_cmd(self, src, dest):
+        return f"scp -q -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' {self.username}@{src} {dest}"
 
     def run_script_on_host(self, host):
         host_tmp_dir = f"{host}_tmp"
         create_tmp_dir_cmd = self.ssh_cmd(host, f"mkdir -p {host_tmp_dir}")
         self.run_cmd(create_tmp_dir_cmd)
 
-        copy_script_cmd = self.scp_cmd(
+        copy_script_cmd = self.scp_write_cmd(
             self.script, f"{host}:{host_tmp_dir}/{Path(self.script).name}"
         )
         self.run_cmd(copy_script_cmd)
 
-        script_args_str = " ".join(self.script_args)
+        # Check args has some content to avoid error
+        # "TypeError: can only join an iterable"
+        if self.script_args:
+            script_args_str = " ".join(self.script_args)
+        else:
+            script_args_str = ""
         run_script_cmd = self.ssh_cmd(
             host,
-            f"{self.shell} {host_tmp_dir}/{Path(self.script).name} {script_args_str}",
+            f'"cd {host_tmp_dir} ; {self.shell} {Path(self.script).name} {script_args_str}"',
         )
         self.run_cmd(run_script_cmd)
 
         collect_files_cmd = self.ssh_cmd(
             host,
-            f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name}-C {host_tmp_dir}/ .",
+            f"tar -czf {host_tmp_dir}/{host}.tar.gz --exclude={host}.tar.gz --exclude={Path(self.script).name} -C {host_tmp_dir}/ .",
         )
         self.run_cmd(collect_files_cmd)
 
-        copy_back_cmd = self.scp_cmd(
+        copy_back_cmd = self.scp_read_cmd(
             f"{host}:{host_tmp_dir}/{host}.tar.gz", f"{host}.tar.gz"
         )
         self.run_cmd(copy_back_cmd)
@@ -122,6 +130,7 @@ class Carrier:
     def run(self):
         threads = []
         for host in self.hosts:
+            self.feedback(f"working with {host}")
             t = Thread(target=self.run_script_on_host, args=(host,))
             t.start()
             threads.append(t)
@@ -135,6 +144,10 @@ class Carrier:
                 os.remove(f"{host}.tar.gz")
 
         return f"All done! The final archive is {self.output_archive}"
+
+    def feedback(self, fb_string):
+        fb_output = f"progress: {fb_string}"
+        print(fb_output)
 
 
 def main():

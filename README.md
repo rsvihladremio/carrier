@@ -63,3 +63,39 @@ options:
   --shell {bash,zsh,sh}
                         Shell to use for running the script (default: bash).
 ```
+
+### Examples
+
+If we want to find which labels are on which pods you can run `get pods` with the `--show-labels` flag. We can see that `role=dremio-cluster-pod` is common to the coordinator and executor, but `app=dremio-coordinator` is only on the coordinator
+
+```kubectl get pods --show-labels
+NAME                READY   STATUS    RESTARTS   AGE     LABELS
+dremio-executor-0   1/1     Running   0          7m10s   app=dremio-executor,controller-revision-hash=dremio-executor-548dbb9fd8,role=dremio-cluster-pod,statefulset.kubernetes.io/pod-name=dremio-executor-0
+dremio-master-0     2/2     Running   0          7m10s   app=dremio-coordinator,controller-revision-hash=dremio-master-975b755b5,role=dremio-cluster-pod,statefulset.kubernetes.io/pod-name=dremio-master-0
+zk-0                1/1     Running   0          7m10s   app=zk,controller-revision-hash=zk-66557b548b,statefulset.kubernetes.io/pod-name=zk-0
+zk-1                1/1     Running   0          7m10s   app=zk,controller-revision-hash=zk-66557b548b,statefulset.kubernetes.io/pod-name=zk-1
+zk-2                1/1     Running   0          7m10s   app=zk,controller-revision-hash=zk-66557b548b,statefulset.kubernetes.io/pod-name=zk-2
+```
+
+If we cant to run a collection from all pods
+
+```
+python3 ./carrier_k8s.py --namespace default --labels role=dremio-cluster-pod --shell bash scripts/collect-metrics.sh
+```
+
+Typical output example
+
+```
+progress: creating tmp dir /tmp/dremio-executor-0_tmp on dremio-executor-0
+progress: creating tmp dir /tmp/dremio-master-0_tmp on dremio-master-0
+progress: copying script scripts/collect-metrics.sh to dremio-executor-0
+progress: copying script scripts/collect-metrics.sh to dremio-master-0
+progress: running script on dremio-executor-0
+progress: running script on dremio-master-0
+progress: archiving files for dremio-executor-0
+progress: archiving files for dremio-master-0
+progress: copying back files from dremio-executor-0
+progress: copying back files from dremio-master-0
+All done! The final archive is output.tar.gz
+```
+

@@ -11,42 +11,118 @@
 #    limitations under the License.
 
 import unittest
-from unittest.mock import MagicMock, patch
+import os
 from carrier_k8s import CarrierK8s
+from pytest_kind import KindCluster
+from pathlib import Path
+from pykube import Pod
+import operator
+import time
+import tarfile
+import tempfile
+
+
+TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
+def search_file_in_nested_tar_gz(archive_path, file_name):
+    with tarfile.open(archive_path, "r:gz") as tar:
+        for member in tar.getmembers():
+            if member.isfile() and member.name == file_name:
+                # Found the desired file in the current nested tar.gz
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    tar.extract(member, path=temp_dir)
+                    extracted_file_path = os.path.join(temp_dir, member.name)
+                    with open(extracted_file_path, "r") as extracted_file:
+                        file_content = extracted_file.read()
+                return file_content
+
+            if member.isfile() and member.name.endswith(".tar.gz"):
+                # Extract the nested tar.gz to a temporary directory
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    tar.extract(member, path=temp_dir)
+                    nested_archive_path = os.path.join(temp_dir, member.name)
+
+                    # Recursively search within the nested tar.gz
+                    result = search_file_in_nested_tar_gz(
+                        nested_archive_path, file_name
+                    )
+
+                return result
+
+    # File not found
+    return None
+
+
+def check_file_in_tar_gz(archive_path, file_name):
+    # Open the tar.gz archive
+    with tarfile.open(archive_path, "r:gz") as tar:
+        # Check if the file exists in the archive
+        return file_name in tar.getnames()
 
 
 class TestCarrierK8s(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cluster = KindCluster("dremio-testing")
+        cls.cluster.create()
+        cls.cluster.kubectl("apply", "-f", TEST_DATA_DIR / "statefulset.yaml")
+        count = 0
+        max_tries = 30
+        while True:
+            count += 1
+            total = len(
+                list(
+                    filter(
+                        operator.attrgetter("ready"),
+                        Pod.objects(cls.cluster.api).filter(
+                            selector="app.kubernetes.io/name=dremio-easy-chart"
+                        ),
+                    )
+                )
+            )
+            if count > max_tries:
+                raise Exception("too many tries to see if the new pod was deployed")
+            if total > 0:
+                break
+            else:
+                time.sleep(5)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cluster.delete()
+
     def setUp(self):
-        self.runner = CarrierK8s("test_script.sh", "default", "app=myapp", "bash", [])
+        self.runner = CarrierK8s(
+            TEST_DATA_DIR / "test_script.sh",
+            "default",
+            "app.kubernetes.io/name=dremio-easy-chart",
+            "bash",
+            [],
+            TEST_DATA_DIR / "output" / "output.tar.gz",
+            "kind-dremio-testing",
+            ".pytest-kind/dremio-testing/kubeconfig",
+        )
 
-    def test_init(self):
-        self.assertEqual(self.runner.script, "test_script.sh")
-        self.assertEqual(self.runner.namespace, "default")
-        self.assertEqual(self.runner.labels, "app=myapp")
-        self.assertEqual(self.runner.shell, "bash")
+    def tearDown(self):
+        try:
+            os.remove(TEST_DATA_DIR / "output" / "output.tar.gz")
+        except:
+            pass
 
-    @patch("subprocess.check_output")
-    def test_get_pods(self, mock_check_output):
-        mock_check_output.return_value = b"pod1\npod2\n"
+    def test_get_pods(self):
         pods = self.runner.get_pods()
-        self.assertEqual(pods, ["pod1", "pod2"])
+        self.assertEqual(pods, ["demo-dremio-easy-chart-0"])
 
-    @patch("carrier_k8s.CarrierK8s.run_cmd")
-    def test_run_script_on_pod(self, mock_run_cmd):
-        mock_run_cmd.return_value = 0
-        self.runner.run_script_on_pod("pod1")
-        self.assertEqual(mock_run_cmd.call_count, 6)
-
-    @patch("carrier_k8s.CarrierK8s.get_pods")
-    @patch("carrier_k8s.CarrierK8s.run_script_on_pod")
-    @patch("tarfile.open")
-    @patch("os.remove")
-    def test_run(self, mock_remove, mock_open, mock_run_script_on_pod, mock_get_pods):
-        mock_get_pods.return_value = ["pod1", "pod2"]
+    def test_run_carrier(self):
+        archive_path = TEST_DATA_DIR / "output" / "output.tar.gz"
+        nested_archive = "demo-dremio-easy-chart-0.tar.gz"
         self.runner.run()
-        mock_run_script_on_pod.assert_called()
-        mock_open.assert_called_once_with("output.tar.gz", "w:gz")
-        mock_remove.assert_called()
+        check_file_in_tar_gz(archive_path, nested_archive)
+        f = search_file_in_nested_tar_gz(archive_path, "./carrier.log")
+        self.assertEqual("this is my test log\n", f)
+        server_out = search_file_in_nested_tar_gz(archive_path, "./server.out")
+        self.assertNotEqual(None, server_out)
 
 
 if __name__ == "__main__":

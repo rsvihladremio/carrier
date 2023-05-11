@@ -36,7 +36,7 @@ class TestCarrier(unittest.TestCase):
 
     @patch("subprocess.check_output")
     def test_scp_cmd(self, mock_check_output):
-        cmd = self.runner.scp_cmd("test.txt", "host1:/tmp/test.txt")
+        cmd = self.runner.scp_write_cmd("test.txt", "host1:/tmp/test.txt")
         self.assertIn("scp", cmd)
 
     @patch("carrier.Carrier.run_cmd")
