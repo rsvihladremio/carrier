@@ -19,8 +19,7 @@ from carrier import Carrier
 class TestCarrier(unittest.TestCase):
     def setUp(self):
         self.runner = Carrier(
-            "test_script.sh", [
-                "host1", "host2"], "user", "password", False, "bash"
+            "test_script.sh", ["host1", "host2"], "user", "password", False, "bash"
         )
 
     def test_init(self):

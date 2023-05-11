@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 
 .vscode
+
+.pytest-kind
+.DS_Store

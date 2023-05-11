@@ -23,8 +23,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Run a script on multiple hosts and collect output."
     )
-    parser.add_argument(
-        "script", help="Path to the script file to run on hosts.")
+    parser.add_argument("script", help="Path to the script file to run on hosts.")
     parser.add_argument(
         "--hosts", help="Comma-separated list of hosts (e.g., 'host1,host2')."
     )
@@ -113,7 +112,7 @@ class Carrier:
             script_args_str = ""
         run_script_cmd = self.ssh_cmd(
             host,
-            f"\"cd {host_tmp_dir} ; {self.shell} {Path(self.script).name} {script_args_str}\"",
+            f'"cd {host_tmp_dir} ; {self.shell} {Path(self.script).name} {script_args_str}"',
         )
         self.run_cmd(run_script_cmd)
 
