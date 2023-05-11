@@ -41,9 +41,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt # Replace with your requirements file name
 
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v2
-
     - name: Set up KIND
       run: |
         curl -Lo kind https://kind.sigs.k8s.io/dl/v0.18.0/kind-linux-amd64
