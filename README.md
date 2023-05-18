@@ -77,7 +77,7 @@ zk-1                1/1     Running   0          7m10s   app=zk,controller-revis
 zk-2                1/1     Running   0          7m10s   app=zk,controller-revision-hash=zk-66557b548b,statefulset.kubernetes.io/pod-name=zk-2
 ```
 
-If we cant to run a collection from all pods
+If we want to run a collection from all pods
 
 ```
 python3 ./carrier_k8s.py --namespace default --labels role=dremio-cluster-pod --shell bash scripts/collect-metrics.sh
