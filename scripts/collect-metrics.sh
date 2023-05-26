@@ -16,7 +16,7 @@ TTOP_ALLOC_LOG="$MONDIR/$NODE-$DATE-monitor-ttop-alloc-$DR_PID.out"
 export PATH=$PATH:$JAVA_HOME/bin
 JSTACK=$(which jstack)
 JAVA=$(which java)" -jar "
-SJK="/tmp/sjk-plus-0.19.jar"
+SJK="/tmp/sjk-plus.jar"
 COUNT=30    # number of iterations
 DELAY=2    # seconds between iterations
 
