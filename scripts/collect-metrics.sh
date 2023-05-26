@@ -17,8 +17,8 @@ export PATH=$PATH:$JAVA_HOME/bin
 JSTACK=$(which jstack)
 JAVA=$(which java)" -jar "
 SJK="/tmp/sjk-plus-0.19.jar"
-COUNT=5    # number of iterations
-DELAY=5    # seconds between iterations
+COUNT=30    # number of iterations
+DELAY=2    # seconds between iterations
 
 # Find the SJK tool, if its not there, download the binary. For more info on the SJK see: https://github.com/aragozin/jvm-tools
 function find_sjk {
