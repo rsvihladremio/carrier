@@ -3,15 +3,15 @@
 # Enables JMX on node
 
 ENV_FILE="/opt/dremio/conf/dremio-env"
-TELEMETRY_FILE="/opt/dremio/conf/telemetry.yaml"
+TELEMETRY_FILE="/opt/dremio/conf/dremio-telemetry.yaml"
 
 function check_jmx {
     if [ $(grep -c "com.sun.management.jmxremote" $ENV_FILE) -gt 0 ]; then
         echo "Looks like jmx config might already be enabled. Please check $ENV_FILE manually"
     else
-        echo "DREMIO_JAVA_SERVER_EXTRA_OPTS=\"$DREMIO_JAVA_SERVER_EXTRA_OPTS -Dcom.sun.management.jmxremote.port=59001\"" >>  $ENV_FILE
-        echo "DREMIO_JAVA_SERVER_EXTRA_OPTS=\"$DREMIO_JAVA_SERVER_EXTRA_OPTS -Dcom.sun.management.jmxremote.authenticate=false\"" >> $ENV_FILE
-        echo "DREMIO_JAVA_SERVER_EXTRA_OPTS=\"$DREMIO_JAVA_SERVER_EXTRA_OPTS -Dcom.sun.management.jmxremote.ssl=false\"" >> $ENV_FILE
+        echo "DREMIO_JAVA_SERVER_EXTRA_OPTS=\"\$DREMIO_JAVA_SERVER_EXTRA_OPTS -Dcom.sun.management.jmxremote.port=59001\"" >>  $ENV_FILE
+        echo "DREMIO_JAVA_SERVER_EXTRA_OPTS=\"\$DREMIO_JAVA_SERVER_EXTRA_OPTS -Dcom.sun.management.jmxremote.authenticate=false\"" >> $ENV_FILE
+        echo "DREMIO_JAVA_SERVER_EXTRA_OPTS=\"\$DREMIO_JAVA_SERVER_EXTRA_OPTS -Dcom.sun.management.jmxremote.ssl=false\"" >> $ENV_FILE
     fi
 }
 
@@ -58,7 +58,7 @@ metrics:
     reporter:
       type: jmx
   -
-
+    name: rpc
     reporter:
       type: jmx
   -
