@@ -24,7 +24,7 @@ DELAY=2    # seconds between iterations
 function find_sjk {
     if [ ! -f $SJK ]; then
         echo "SJK not found, attempting to download ..."
-        wget "https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.gridkit.jvmtool&a=sjk-plus&v=LATEST" -O $SJK
+        wget "https://repo1.maven.org/maven2/org/gridkit/jvmtool/sjk-core/0.21/sjk-core-0.21.jar" -O $SJK
     fi
 }
 
